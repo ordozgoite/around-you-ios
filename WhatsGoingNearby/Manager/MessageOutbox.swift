@@ -48,20 +48,34 @@ final class MessageOutbox: ObservableObject {
     /// O upload da foto demora mais que um POST de texto, então envios paralelos chegariam fora
     /// de ordem ao servidor e a conversa apareceria embaralhada.
     private var pipeline: Task<Void, Never>?
+    private var sessionID = UUID()
 
     /// Mensagens que falharam e estão segurando a corrente até serem reenviadas ou removidas.
     private var blockedSends: [String: CheckedContinuation<Void, Never>] = [:]
 
+    func resetSession() {
+        sessionID = UUID()
+        pipeline?.cancel()
+        pipeline = nil
+        lastEvent = nil
+
+        let continuations = Array(blockedSends.values)
+        blockedSends.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+
     func enqueue(_ message: MessageIntermediary) {
+        let sessionID = sessionID
         let previous = pipeline
         pipeline = Task { [weak self] in
             await previous?.value
-            await self?.send(message)
+            await self?.send(message, sessionID: sessionID)
         }
     }
 
-    private func send(_ message: MessageIntermediary) async {
-        await deliver(message)
+    private func send(_ message: MessageIntermediary, sessionID: UUID) async {
+        await deliver(message, sessionID: sessionID)
+        guard sessionID == self.sessionID else { return }
         await holdPipeline(ifFailed: message.id)
     }
 
@@ -86,14 +100,16 @@ final class MessageOutbox: ObservableObject {
     /// Separado de `send` porque o reenvio precisa disto e nada mais: passar por `holdPipeline`
     /// guardaria uma segunda continuação para a mesma mensagem e deixaria a corrente presa para
     /// sempre na primeira, que ninguém mais retomaria.
-    private func deliver(_ message: MessageIntermediary) async {
+    private func deliver(_ message: MessageIntermediary, sessionID: UUID) async {
         // Os poucos segundos que o sistema concede depois do app sair da tela. Não é garantia de
         // entrega — quem encerra pelo app switcher não roda mais nada —, mas cobre com folga um
         // texto e a maioria dos uploads de foto, que é o caso comum de sair no meio do envio.
         let assertion = UIApplication.shared.beginBackgroundTask(withName: "send-message")
         defer { UIApplication.shared.endBackgroundTask(assertion) }
 
-        guard let token = await currentToken() else {
+        let token = await currentToken()
+        guard !Task.isCancelled, sessionID == self.sessionID else { return }
+        guard let token else {
             markFailed(message)
             return
         }
@@ -102,9 +118,12 @@ final class MessageOutbox: ObservableObject {
         do {
             imageUrl = try await uploadedImageUrl(for: message.image)
         } catch {
+            guard !Task.isCancelled, sessionID == self.sessionID else { return }
             markFailed(message)
             return
         }
+
+        guard !Task.isCancelled, sessionID == self.sessionID else { return }
 
         // Sem `imageUrl` a mensagem de foto não tem conteúdo nenhum, e a API a recusaria. Falhar
         // aqui é o que preserva os bytes locais para uma nova tentativa.
@@ -123,6 +142,8 @@ final class MessageOutbox: ObservableObject {
             clientMessageId: message.id,
             token: token
         )
+
+        guard !Task.isCancelled, sessionID == self.sessionID else { return }
 
         switch result {
         case .success(let confirmed):
@@ -181,6 +202,7 @@ final class MessageOutbox: ObservableObject {
     func retryFailedMessages(chatId: String? = nil) {
         let pending = messageStore.loadFailedMessages(chatId: chatId)
         guard !pending.isEmpty else { return }
+        let sessionID = sessionID
 
         // Cada falha deixou a corrente presa na própria mensagem, esperando o reenvio. Soltar
         // antes de re-enfileirar é o que evita o impasse: sem isto, a nova tentativa entraria na
@@ -192,19 +214,22 @@ final class MessageOutbox: ObservableObject {
         let previous = pipeline
         pipeline = Task { [weak self] in
             await previous?.value
+            guard let self, sessionID == self.sessionID else { return }
             // Entregues em ordem, e sem voltar a segurar a corrente: a leva já está ordenada por
             // data, e uma nova falha aqui não deve impedir as seguintes de tentarem.
             for message in pending {
-                self?.lastEvent = .sending(temporaryId: message.id)
-                await self?.deliver(message)
+                guard sessionID == self.sessionID else { return }
+                self.lastEvent = .sending(temporaryId: message.id)
+                await self.deliver(message, sessionID: sessionID)
             }
         }
     }
 
     /// Reenvia uma mensagem específica, a pedido do usuário.
     func retry(_ message: MessageIntermediary) async {
+        let sessionID = sessionID
         lastEvent = .sending(temporaryId: message.id)
-        await deliver(message)
+        await deliver(message, sessionID: sessionID)
     }
 
     /// Esquece uma mensagem que o usuário descartou, liberando a corrente que ela segurava.

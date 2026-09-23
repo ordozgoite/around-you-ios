@@ -256,6 +256,10 @@ struct WhatsGoingNearbyApp: App {
                 .environmentObject(socket)
                 .environmentObject(locationManager)
                 .environmentObject(placesVM)
+                .onChange(of: authVM.authenticationState) { state in
+                    guard state == .unauthenticated else { return }
+                    resetSession()
+                }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
                         socket.handleAppDidBecomeActive()
@@ -273,5 +277,16 @@ struct WhatsGoingNearbyApp: App {
                     _ = GIDSignIn.sharedInstance.handle(url)
                 }
         }
+    }
+
+    @MainActor
+    private func resetSession() {
+        MessageOutbox.shared.resetSession()
+        PersistenceController.shared.wipe()
+        router.resetSession()
+        placesVM.resetSession()
+        PublicationViewTracker.shared.clearSession()
+        notificationManager.resetSession()
+        socket.resetSession()
     }
 }

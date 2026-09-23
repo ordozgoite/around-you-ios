@@ -27,6 +27,27 @@ class PlacesViewModel: ObservableObject {
     private var createPostTask: Task<Void, Never>?
     private var publicationEligibilityUpdatedAt: Date? = nil
 
+    func resetSession() {
+        let temporaryVideoURL = postToBePublished?.video?.url
+        createPostTask?.cancel()
+        createPostTask = nil
+        feedTimer?.invalidate()
+        feedTimer = nil
+        removeTemporaryVideo(at: temporaryVideoURL)
+
+        posts = []
+        isLoading = false
+        isCommentScreenPresented = false
+        overlayError = (false, "")
+        initialPostsFetched = false
+        shouldUpdateFeed = true
+        isLostAndFoundScreenDisplayed = false
+        isReportScreenDisplayed = false
+        isHelpViewDisplayed = false
+        postToBePublished = nil
+        invalidatePublicationCreationEligibility()
+    }
+
     var isPublicationEligibilityFresh: Bool {
         guard let publicationEligibilityUpdatedAt else { return false }
         return Date().timeIntervalSince(publicationEligibilityUpdatedAt) < 60

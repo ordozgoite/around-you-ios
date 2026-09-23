@@ -515,8 +515,16 @@ extension AuthenticationViewModel {
         name = nil
         profilePic = nil
         biography = nil
+        showProfileInPublicationViews = true
         role = .user
         isUserInfoFetched = false
+        isUserDiscoverable = false
+        age = 18
+        gender = .cisMale
+        interestGenders = []
+        minInterestAge = 25
+        maxInterestAge = 40
+        isDiscoverNotificationsEnabled = true
         
         forgetUserProfile()
     }
@@ -529,6 +537,8 @@ extension AuthenticationViewModel {
         LocalState.biography = ""
         LocalState.userRole = ""
         LocalState.isUserInfoFetched = false
+        LocalState.isPostLocationVisible = false
+        LocalState.agreedWithDiscoverDisclaimer = false
 
         // Derruba a conexão para que a sessão anterior deixe de receber eventos.
         SocketService.shared.handleUserSessionChanged()
@@ -538,6 +548,10 @@ extension AuthenticationViewModel {
         usernameInput = ""
         emailInput = ""
         passwordInput = ""
+        flow = .login
+        isLoading = false
+        isForgotPasswordScreenDisplayed = false
+        errorMessage = (nil, nil, nil)
     }
     
     private func getPreferredLanguage() -> String? {

@@ -53,6 +53,14 @@ final class AppRouter: ObservableObject {
         }
     }
 
+    func resetSession() {
+        selectedTab = .home
+        chatFocusRequest = nil
+        homeNav.goToRoot()
+        chatNav.goToRoot()
+        accountNav.goToRoot()
+    }
+
     /// Conversa que o usuário está efetivamente vendo: só o topo da pilha da aba visível.
     ///
     /// Uma conversa empilhada em outra aba, ou coberta por outra tela, não conta — do ponto

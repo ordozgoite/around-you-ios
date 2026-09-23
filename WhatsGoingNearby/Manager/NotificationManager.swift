@@ -34,6 +34,18 @@ class NotificationManager: NSObject, ObservableObject {
         super.init()
         notificationCenter.delegate = self
     }
+
+    func resetSession() {
+        pendingPayload = nil
+        publicationId = nil
+        isPublicationDisplayed = false
+        communityId = nil
+        communityName = nil
+        communityImageUrl = nil
+        isCommunityChatDisplayed = false
+        isPeopleTabDisplayed = false
+        Self.clearDeliveredNotificationsAndBadge()
+    }
     
 }
 

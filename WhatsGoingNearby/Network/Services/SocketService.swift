@@ -371,6 +371,14 @@ final class SocketService: ObservableObject {
 
 extension SocketService {
 
+    func resetSession() {
+        handleUserSessionChanged()
+        notificationTimer?.invalidate()
+        notificationTimer = nil
+        notificationQueue.removeAll()
+        currentNotification = nil
+    }
+
     /// Deve ser chamado quando a sessão do usuário muda: login, troca de conta ou logout.
     ///
     /// A identidade do socket é fixada pelo servidor no handshake e não muda enquanto a conexão
