@@ -20,10 +20,10 @@ extension Notification.Name {
 }
 
 struct Constants {
-    static let API_URL: String = "https://around-you-3acb9615e8a5.herokuapp.com" // Heroku
+    static let API_URL: String = "https://api.getaroundyou.com" // AWS
+//    static let API_URL: String = "https://around-you-3acb9615e8a5.herokuapp.com" // Heroku
 //    static let API_URL: String = "http://localhost:3000"    
 //    static let API_URL: String = "http://10.0.0.69" // Raspberry (local)
-//    static let API_URL: String = "https://18.229.46.120" // AWS
     
     // MARK: - BG Tasks
 
